@@ -24,26 +24,26 @@ jobs:
         target: [esp32, esp32s3, esp32c3, esp32p4]
     env:
       IDF_VERSION: v5.5
+      IDF_PATH: /home/runner/esp-idf
     steps:
       - uses: actions/checkout@v4
-      # There is no official ESP-IDF setup action: espressif/idf does not exist,
-      # and the espressif/esp-idf repository ships no action.yml. Install it the
-      # way the documentation says instead. Installing only the toolchain for
-      # the target under test keeps the job reasonably quick.
+      # There is no official ESP-IDF setup action: espressif/idf does not exist
+      # as a repository, and espressif/esp-idf ships no action.yml. Install it
+      # the way the documentation describes instead. Installing only the
+      # toolchain for the target under test keeps the job reasonably quick.
       - name: Install ESP-IDF
         run: |
           git clone -b "$IDF_VERSION" --recursive --depth 1 \
-            https://github.com/espressif/esp-idf.git "$HOME/esp-idf"
-          cd "$HOME/esp-idf"
+            https://github.com/espressif/esp-idf.git "$IDF_PATH"
+          cd "$IDF_PATH"
           ./install.sh ${{ matrix.target }}
-          # Every run: block is a new shell, so the environment has to be
-          # handed to the following steps or idf.py is simply not found.
-          echo "IDF_PATH=$HOME/esp-idf" >> "$GITHUB_ENV"
-          echo "$HOME/esp-idf/export.sh" >> "$GITHUB_BASH_ENV"
+      # Every run: block gets a new shell, so the environment has to be sourced
+      # again here or idf.py is simply not found.
       - name: Build
-        # The target has to be selected explicitly. ESP-IDF does not read the
-        # target from sdkconfig.defaults, so relying on that silently builds
-        # for the wrong chip.
+        # The target is selected explicitly on purpose. ESP-IDF does not read
+        # the target from sdkconfig.defaults, so relying on that alone silently
+        # builds for the wrong chip.
         run: |
+          . "$IDF_PATH/export.sh"
           idf.py set-target ${{ matrix.target }}
           idf.py build
