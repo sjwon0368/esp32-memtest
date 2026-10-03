@@ -154,8 +154,15 @@ def changelog_section(markdown):
     return "\n".join(kept).rstrip() + "\n"
 
 
-def update_changelog(markdown):
-    """Insert the new version above the existing ones in CHANGELOG.md."""
+def update_changelog(markdown, force=False):
+    """Insert this version's section into CHANGELOG.md.
+
+    A version that is already documented is left alone unless force is set. The
+    changelog for a released version is history, and the notes a machine derives
+    from commit subjects are a worse record than something a human wrote. This
+    also keeps the step idempotent: re-running the release never stacks a second
+    copy of the same version on top of the first.
+    """
     try:
         with open("CHANGELOG.md", encoding="utf-8") as handle:
             existing = handle.read()
@@ -163,6 +170,11 @@ def update_changelog(markdown):
         return False
 
     section = changelog_section(markdown)
+    heading = section.splitlines()[0].strip()      # "## [1.0.1]"
+
+    if not force and re.search(r"^" + re.escape(heading) + r"\s*$", existing, re.M):
+        return False
+
     marker = re.search(r"^## \[", existing, re.M)
     if marker:
         head = existing[: marker.start()].rstrip() + "\n\n"
@@ -186,6 +198,11 @@ def main():
         action="store_true",
         help="print the notes but leave CHANGELOG.md alone",
     )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="rewrite the CHANGELOG section even if that version is documented",
+    )
     args = parser.parse_args()
 
     if not TAG_RE.match(args.version):
@@ -200,8 +217,11 @@ def main():
     with open(args.out, "w", encoding="utf-8") as handle:
         handle.write(markdown)
 
-    if not args.no_changelog and update_changelog(markdown):
-        print(f"updated CHANGELOG.md (previous release: {prev or 'none'})")
+    if not args.no_changelog:
+        if update_changelog(markdown, force=args.force):
+            print(f"updated CHANGELOG.md (previous release: {prev or 'none'})")
+        else:
+            print(f"CHANGELOG.md already documents this version, left as is")
     print(f"wrote {args.out}: {len(commits)} commit(s), previous tag {prev or 'none'}")
     return 0
 
