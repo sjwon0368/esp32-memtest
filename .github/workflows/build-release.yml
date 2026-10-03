@@ -62,8 +62,8 @@ jobs:
       # There is no official ESP-IDF setup action: espressif/idf does not exist
       # as a repository and espressif/esp-idf ships no action.yml.
       #
-      # Installing ESP-IDF emits tens of thousands of lines, which makes the log
-      # unreadable, so it is captured to a file and only shown if it fails.
+      # Installing ESP-IDF emits tens of thousands of lines, so it is captured
+      # to a file and only shown if it fails.
       - name: Install ESP-IDF
         run: |
           set -eu
@@ -76,8 +76,7 @@ jobs:
             cd "$IDF_PATH" &&
             ./install.sh ${{ matrix.target }}
           ) >"$log" 2>&1; then
-            echo "ESP-IDF $IDF_VERSION installed for ${{ matrix.target }} " \
-                 "($(wc -l <"$log") lines of installer output hidden)"
+            echo "ESP-IDF $IDF_VERSION installed for ${{ matrix.target }} ($(wc -l <"$log") lines hidden)"
           else
             echo "::error::ESP-IDF install failed; last 80 lines:"
             tail -80 "$log"
@@ -86,8 +85,8 @@ jobs:
 
       # Build and package happen in one step on purpose. Every run: block is a
       # fresh shell, so idf.py and esptool.py only exist after export.sh has been
-      # sourced. Splitting these into separate steps previously produced
-      # "esptool.py: command not found" in the packaging step.
+      # sourced. Splitting these previously produced "esptool.py: command not
+      # found" in the packaging step.
       - name: Build and package
         run: |
           set -eu
@@ -130,7 +129,7 @@ jobs:
             0x8000  build/partition_table/partition-table.bin \
             0x10000 build/esp32-memtest.bin
 
-          # Do not ship an image that will not boot. Refuse to release it.
+          # Do not ship an image that will not boot.
           esptool.py image_info "$outdir/$name.bin" | tee "$infodir/$name.txt"
           grep -qi "checksum.*valid" "$infodir/$name.txt" || {
             echo "::error::merged image for $name failed checksum validation"
@@ -142,7 +141,7 @@ jobs:
             exit 1
           }
 
-          # Zip from outside the directory being zipped, so the archive cannot
+          # Zip from outside the directory being zipped so the archive cannot
           # contain itself.
           ( cd "$stage" && zip -q -r "$outdir/$name.zip" . )
 
@@ -150,8 +149,7 @@ jobs:
             echo "::error::packaging produced nothing for $name"
             exit 1
           }
-          echo "built $name.bin ($(stat -c%s "$outdir/$name.bin") bytes) " \
-               "and $name.zip ($(stat -c%s "$outdir/$name.zip") bytes)"
+          echo "built $name.bin ($(stat -c%s "$outdir/$name.bin") bytes) and $name.zip ($(stat -c%s "$outdir/$name.zip") bytes)"
 
       - name: Upload package
         uses: actions/upload-artifact@v4
@@ -167,6 +165,12 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history and every v* tag, so the notes are compared against
+          # the previous release rather than guessed at.
+          fetch-depth: 0
+
       - uses: actions/download-artifact@v4
         with:
           path: artefacts
@@ -175,13 +179,22 @@ jobs:
         run: |
           set -eu
           mkdir -p dist
-          find artefacts -name '*.zip' -o -name '*.bin' | while read -r f; do
+          find artefacts \( -name '*.zip' -o -name '*.bin' \) -print | while read -r f; do
             cp "$f" dist/
           done
           ls -l dist
-          # Every target must have produced exactly one zip and one merged image.
-          n=$(ls dist | wc -l)
-          [ "$n" -eq 8 ] || { echo "::error::expected 8 artefacts, found $n"; exit 1; }
+          # Name every missing file rather than just counting, so a failure says
+          # which target went wrong.
+          missing=""
+          for n in ESP32 ESP32S3 ESP32C3 ESP32P4; do
+            [ -s "dist/$n.zip" ] || missing="$missing $n.zip"
+            [ -s "dist/$n.bin" ] || missing="$missing $n.bin"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::missing artefacts:$missing"
+            exit 1
+          fi
+          echo "all 8 artefacts present"
 
       - name: Build release notes
         env:
@@ -189,25 +202,44 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           set -eu
+          chmod +x packaging/release_notes.py
+          # Compares against the highest existing v* tag, groups the commits in
+          # between by type, and inserts a section into CHANGELOG.md.
+          python3 packaging/release_notes.py --version "$TAG" \
+            --repo "$REPO" --out notes-changes.md
+          echo "--- changes ---"
+          cat notes-changes.md
+
+      - name: Commit the changelog
+        env:
+          TAG: ${{ inputs.version }}
+        run: |
+          set -eu
+          if git diff --quiet -- CHANGELOG.md; then
+            echo "CHANGELOG.md already up to date"
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG.md
+          git commit -m "docs: changelog for $TAG"
+          git push origin "HEAD:${{ github.ref_name }}"
+
+      - name: Assemble release body
+        env:
+          REPO: ${{ github.repository }}
+        run: |
+          set -eu
           {
-            echo "Prebuilt firmware for every supported target."
+            cat packaging/RELEASE_BODY.in.md
             echo
-            echo "Each target ships as a zip with the three separate images and a"
-            echo "\`FLA.txt\` describing the flash offsets, plus a single merged"
-            echo "\`.bin\` image that can be flashed at offset \`0x0\`."
+            echo "## What changed in ${{ inputs.version }}"
             echo
-            echo "| Target | Merged image | Zip |"
-            echo "| --- | --- | --- |"
-            echo "| ESP32 | \`ESP32.bin\` | \`ESP32.zip\` |"
-            echo "| ESP32S3 | \`ESP32S3.bin\` | \`ESP32S3.zip\` |"
-            echo "| ESP32C3 | \`ESP32C3.bin\` | \`ESP32C3.zip\` |"
-            echo "| ESP32P4 | \`ESP32P4.bin\` | \`ESP32P4.zip\` |"
+            cat notes-changes.md
             echo
-            echo "Full instructions are in \`FLA.txt\` inside each zip, and in the"
-            echo "[README](https://github.com/$REPO#prebuilt-images)."
-            echo
-            echo "See [CHANGELOG.md](https://github.com/$REPO/blob/$TAG/CHANGELOG.md) for what changed."
+            echo "Full instructions: <https://github.com/$REPO#prebuilt-images>"
           } > notes.md
+          echo "--- release body ---"
           cat notes.md
 
       - name: Create release

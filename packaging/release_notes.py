@@ -134,6 +134,26 @@ def render(commits, version, previous, repo):
     return "\n".join(out)
 
 
+def changelog_section(markdown):
+    """The rendered notes as a Keep a Changelog section.
+
+    Drops only the compare link, which belongs in the release body but not in
+    the file, and rewrites the heading to the [x.y.z] form the rest of
+    CHANGELOG.md uses.
+    """
+    kept = []
+    for line in markdown.splitlines():
+        if line.startswith("Full history:"):
+            break
+        if line.startswith("## "):
+            # Keep a Changelog uses [1.0.1]; the tag on GitHub is v1.0.1.
+            version = re.sub(r"^v", "", line[3:].strip())
+            kept.append(f"## [{version}]")
+            continue
+        kept.append(line)
+    return "\n".join(kept).rstrip() + "\n"
+
+
 def update_changelog(markdown):
     """Insert the new version above the existing ones in CHANGELOG.md."""
     try:
@@ -142,31 +162,17 @@ def update_changelog(markdown):
     except FileNotFoundError:
         return False
 
-    # Only the section for this version, without our own headings.
-    lines = markdown.splitlines()
-    kept, skipping = [], False
-    for line in lines:
-        if line.startswith("### "):
-            skipping = True
-        elif line.startswith("## "):
-            skipping = False
-        elif line.startswith("Full history:"):
-            skipping = True
-        if not skipping:
-            kept.append(line)
-
-    body = "\n".join(kept).rstrip() + "\n"
-
+    section = changelog_section(markdown)
     marker = re.search(r"^## \[", existing, re.M)
     if marker:
         head = existing[: marker.start()].rstrip() + "\n\n"
-        tail = existing[marker.start() :]
+        tail = existing[marker.start():]
     else:
         head = existing.rstrip() + "\n\n"
         tail = ""
 
     with open("CHANGELOG.md", "w", encoding="utf-8") as handle:
-        handle.write(head + body + "\n" + tail)
+        handle.write(head + section + "\n" + tail)
     return True
 
 

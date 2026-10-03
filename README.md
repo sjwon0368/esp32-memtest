@@ -304,6 +304,9 @@ gh workflow run firmware.yml
 # creates a DRAFT release, safe to try
 gh workflow run build-release.yml -f version=v1.0.0
 
+# generate the notes for a version without publishing anything
+python3 packaging/release_notes.py --version v1.1.0 --out notes.md
+
 # publishes it publicly - only once you are happy with the artefacts
 gh workflow run build-release.yml -f version=v1.0.0 -f publish=true
 ```
@@ -312,6 +315,13 @@ Two details worth knowing. `gh workflow run` takes no positional arguments, so
 the version must be passed as `-f version=...`. And the release stays a draft
 unless `publish` is exactly `true`, so a typo or an empty value cannot
 accidentally publish to the public repository.
+
+The release notes are generated, not written by hand. `packaging/release_notes.py`
+finds the highest existing `v*` tag, takes the commits between it and `HEAD`,
+groups them by type, and inserts a new section into `CHANGELOG.md` (which the
+workflow then commits). Commits are classified from prefixes, so
+`feat:`, `fix:` and `docs:` land in the right group, and plain sentences like
+`Fix the PSRAM detection` are recognised too.
 
 ## Testing without a board
 
