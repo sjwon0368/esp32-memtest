@@ -97,21 +97,37 @@ Always select the chip explicitly with `set-target` (or `-DIDF_TARGET=...`). Wit
 no `sdkconfig` present, ESP-IDF 5.5 falls back to plain `esp32` and silently
 builds an image for the wrong chip.
 
-### Hardware profile: ESP32-S3-WROOM-1 N16R8
+### Target defaults and hardware profiles
 
-`sdkconfig.defaults.esp32s3` is applied automatically when building for
-`esp32s3` and describes the reference board:
+The firmware is the same for every supported chip. It never assumes a PSRAM
+size, a flash size or a pinout: at run time it asks the heap what exists and
+reports that. The only per-board work is telling ESP-IDF how your module is
+wired, and that is the job of these files:
 
-| Setting | Value | Reason |
-| --- | --- | --- |
-| `CONFIG_SPIRAM_MODE_OCT` | `y` | `R8` = 8 MB **octal** PSRAM |
-| `CONFIG_SPIRAM_SPEED_80M` | `y` | octal PSRAM runs in DTR mode, 80 MHz is the supported rate |
-| `CONFIG_ESPTOOLPY_FLASHSIZE_16MB` | `y` | `N16` = 16 MB quad flash, DIO at 80 MHz |
-| `CONFIG_SPIRAM_IGNORE_NOTFOUND` | `y` | boot even if PSRAM is missing, instead of a reboot loop |
+| File | Applied when building for |
+| --- | --- |
+| `sdkconfig.defaults` | every target - console, tester options |
+| `sdkconfig.defaults.esp32` | `esp32` (original, quad PSRAM) |
+| `sdkconfig.defaults.esp32s3` | `esp32s3` (octal PSRAM, 16 MB flash) |
+| - | `esp32c3`, `esp32p4` use `sdkconfig.defaults` only |
 
-Quad PSRAM is the ESP-IDF default for the S3, so a WROOM-1 `N16R8` board must be
-rebuilt with octal mode selected. If the wrong mode is used the chip boot-loops
-with:
+ESP-IDF appends `sdkconfig.defaults.<target>` automatically once the target is
+selected, so `idf.py set-target esp32s3` picks up the S3 profile with no extra
+step.
+
+#### Which PSRAM and flash does my module have?
+
+Module names encode both: `N16R8` = 16 MB flash (`N16`) and 8 MB PSRAM (`R8`).
+
+| Module | Flash | PSRAM | Line mode | Flash size setting |
+| --- | --- | --- | --- | --- |
+| `N16R8` | 16 MB quad | 8 MB | **octal** | `CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y` |
+| `N8R2` | 8 MB quad | 2 MB | quad (default) | `CONFIG_ESPTOOLPY_FLASHSIZE_8MB=y` |
+| `N16R8V` | 16 MB | 8 MB | octal, **1.8 V** | as above |
+
+This is the single most common reason a board appears to have no PSRAM. Quad
+PSRAM is the ESP-IDF default for the S3, so an octal module must ask for it
+explicitly. Get it wrong and the chip boot-loops before the tester starts:
 
 ```
 E (165) quad_psram: PSRAM chip is not connected, or wrong PSRAM line mode
@@ -119,9 +135,8 @@ E cpu_start: Failed to init external RAM!
 abort() was called at PC 0x42001adf on core 0
 ```
 
-Other modules: set `CONFIG_SPIRAM_MODE_OCT` to `n` for quad PSRAM (`N8R2` and
-similar), and correct `CONFIG_ESPTOOLPY_FLASHSIZE_*` for the flash size. The
-application never assumes a PSRAM size; it reports whatever it finds at runtime.
+If you have a different module, add a `sdkconfig.defaults.<target>` line (or
+change the existing one) and rebuild. No source change is needed.
 
 `idf.py menuconfig` -> **Memory tester (esp32-memtest)** holds every option:
 
@@ -129,7 +144,7 @@ application never assumes a PSRAM size; it reports whatever it finds at runtime.
 | --- | --- | --- |
 | `CONFIG_MEMTEST_AUTORUN` | `y` | start testing on boot instead of showing a menu |
 | `CONFIG_MEMTEST_REGIONS` | `psram,internal` | comma separated: `psram`, `internal`, `dma`, `any` |
-| `CONFIG_MEMTEST_TESTS` | `standard` | presets and/or individual pattern keys |
+| `CONFIG_MEMTEST_TESTS` | `full` | presets and/or individual pattern keys |
 | `CONFIG_MEMTEST_PASSES` | `1` | passes over the test set, `0` = until a key is pressed |
 | `CONFIG_MEMTEST_SEED` | `4919` | seed for the random pattern |
 | `CONFIG_MEMTEST_TEST_SIZE_MB` | `0` | fixed size per region, `0` = use everything available |
@@ -138,10 +153,12 @@ application never assumes a PSRAM size; it reports whatever it finds at runtime.
 | `CONFIG_MEMTEST_RESERVE_KB` | `96` | internal RAM kept free so the runtime survives |
 | `CONFIG_MEMTEST_SELFTEST` | `y` | verify the tester before blaming the memory |
 | `CONFIG_MEMTEST_UI_ANSI` | `y` | full screen UI (`n` = plain text) |
+| `CONFIG_MEMTEST_UI_WIDTH` | `78` | screen width, borders included; widen it *and* the terminal together |
 | `CONFIG_MEMTEST_REFRESH_MS` | `200` | screen refresh interval |
 | `CONFIG_MEMTEST_KEYS` | `y` | read keys from the console |
 | `CONFIG_MEMTEST_BAUD` | `115200` | console baud rate |
 | `CONFIG_MEMTEST_REBOOT` | `n` | reboot the board when the run finishes |
+| `CONFIG_MEMTEST_REBOOT_DELAY_MS` | `5000` | delay before that reboot |
 | `CONFIG_MEMTEST_VERBOSE` | `n` | log every allocation decision |
 
 Patterns can be listed individually, for example

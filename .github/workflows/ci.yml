@@ -1,9 +1,10 @@
 name: build
 
+# Manual only. Firmware builds take several minutes per target and download a
+# whole ESP-IDF toolchain each time, so they should not run on every push.
+# Start one from the repository's Actions tab, or with:
+#   gh workflow run ci.yml
 on:
-  push:
-    branches: [master]
-  pull_request:
   workflow_dispatch:
 
 jobs:
