@@ -1,0 +1,107 @@
+name: Bug report
+description: Something behaves incorrectly, crashes, or reports a fault it should not
+title: "[Bug]: "
+labels:
+  - bug
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report this.
+
+        **Please do not paste raw ANSI escape sequences.** They turn the issue
+        into unreadable noise. Press `u` on the tester to switch to plain text
+        output, or attach the file rather than pasting it inline.
+
+  - type: dropdown
+    id: chip
+    attributes:
+      label: Which chip did this happen on?
+      options:
+        - ESP32-S3
+        - ESP32
+        - ESP32-C3
+        - ESP32-P4
+        - Other / not sure
+    validations:
+      required: true
+
+  - type: input
+    id: board
+    attributes:
+      label: Board and module
+      description: The exact module part number is the single most useful thing here.
+      placeholder: ESP32-S3-WROOM-1 N16R8 on a third-party dev board
+    validations:
+      required: true
+
+  - type: input
+    id: psram
+    attributes:
+      label: PSRAM, if any
+      description: Module code, or "none".
+      placeholder: 8 MB octal (R8)
+    validations:
+      required: false
+
+  - type: input
+    id: version
+    attributes:
+      label: esp32-memtest version or commit
+      description: The startup screen prints `ELF SHA256`, which is the most precise identifier.
+      placeholder: v1.0.0, or ELF SHA256 a0bf61b3
+    validations:
+      required: true
+
+  - type: input
+    id: idf
+    attributes:
+      label: ESP-IDF version
+      placeholder: v5.5
+    validations:
+      required: true
+
+  - type: dropdown
+    id: symptom
+    attributes:
+      label: What happens?
+      options:
+        - Reports a memory fault (FAIL)
+        - Crashes, resets or reboots in a loop
+        - Reports "no PSRAM" but the board has PSRAM
+        - Boots but hangs or freezes
+        - A key does nothing
+        - The report is wrong or incomplete
+        - Boots fine, no problem
+        - Something else
+    validations:
+      required: true
+
+  - type: textarea
+    id: output
+    attributes:
+      label: Output
+      description: The tester output, or the part of it that matters.
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: config
+    attributes:
+      label: Anything you changed from the defaults?
+      description: sdkconfig options, a different board, a custom partition table.
+      render: text
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I checked that this is not already reported
+          required: true
+        - label: I read the Troubleshooting section of the README
+          required: false

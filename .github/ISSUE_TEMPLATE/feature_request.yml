@@ -1,0 +1,48 @@
+name: Feature request
+description: Suggest an improvement to the tester, the screen, or the build
+title: "[Feature]: "
+labels:
+  - enhancement
+
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      description: Describe the situation rather than the solution. That usually leads somewhere better.
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you would like instead
+      render: text
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which part does this affect?
+      options:
+        - Test patterns or test sets
+        - Screen and keyboard handling
+        - The report
+        - Build or flashing
+        - Board or chip support
+        - Documentation
+        - Something else
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched the issues and CHANGELOG for this already
+          required: true
+        - label: This is not already possible with a configuration option
+          required: false

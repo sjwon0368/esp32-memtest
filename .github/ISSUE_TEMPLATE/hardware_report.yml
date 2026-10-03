@@ -1,0 +1,52 @@
+name: Supported hardware
+description: Report a board or module combination that works or does not work
+title: "[Hardware]: "
+labels:
+  - hardware
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This is the most valuable kind of report for this project. Hardware
+        support is discovered at runtime rather than hardcoded, so boards nobody
+        has heard of end up working — or not.
+
+  - type: input
+    id: board
+    attributes:
+      label: Board or dev kit
+      placeholder: third-party ESP32-S3 board with an onboard USB-UART bridge
+    validations:
+      required: true
+
+  - type: input
+    id: module
+    attributes:
+      label: Module part number
+      description: The code on the module, e.g. ESP32-S3-WROOM-1-N16R8.
+      placeholder: ESP32-S3-WROOM-1-N16R8
+    validations:
+      required: true
+
+  - type: dropdown
+    id: result
+    attributes:
+      label: Does the tester find all its memory?
+      options:
+        - Yes, PSRAM and internal both detected and tested
+        - Internal only, no PSRAM on a board that has it
+        - PSRAM detected but tests fail
+        - It crashes or reboots
+        - Not tested yet
+    validations:
+      required: true
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything else worth knowing
+      description: USB bridge chip, unusual pin usage, anything that could explain a difference.
+      render: text
+    validations:
+      required: false

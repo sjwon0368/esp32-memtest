@@ -370,6 +370,21 @@ directly; `memtest_esp` is the only component that includes ESP-IDF headers.
 * No display, touch, GPIO, Wi-Fi or SD support, by design. If you want a
   graphical UI, this firmware is not it.
 
+## Reporting a problem
+
+Three issue templates are set up, so the useful details get collected the first
+time:
+
+- **Bug report** — asks for the module part number and the `ELF SHA256` from the
+  startup screen, which identifies the build precisely.
+- **Feature request** — describes the situation rather than the solution.
+- **Supported hardware** — for boards that do or do not work, including ones
+  nobody has heard of.
+
+Two things worth knowing before filing a bug. The console output is ANSI by
+default, so press `u` to switch to plain text before pasting, and include the
+whole startup screen: the PSRAM size the tester found is usually the clue.
+
 ## License
 
 MIT, see [LICENSE](LICENSE).

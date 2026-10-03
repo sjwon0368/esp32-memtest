@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question or discussion
+    url: https://github.com/sjwon0368/esp32-memtest/discussions
+    about: Ask how to use the tester, or propose an idea before opening an issue
+  - name: ESP-IDF documentation
+    url: https://docs.espressif.com/projects/esp-idf/en/latest/esp32s3/api-guides/external-ram.html
+    about: PSRAM configuration and external RAM in ESP-IDF
