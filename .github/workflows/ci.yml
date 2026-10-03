@@ -22,10 +22,26 @@ jobs:
       fail-fast: false
       matrix:
         target: [esp32, esp32s3, esp32c3, esp32p4]
+    env:
+      IDF_VERSION: v5.5
     steps:
       - uses: actions/checkout@v4
-      - uses: espressif/idf@v5.5
-        with:
-          target: ${{ matrix.target }}
+      # There is no official ESP-IDF setup action: espressif/idf does not exist,
+      # and the espressif/esp-idf repository ships no action.yml. Install it the
+      # way the documentation says instead. Installing only the toolchain for
+      # the target under test keeps the job reasonably quick.
+      - name: Install ESP-IDF
+        run: |
+          git clone -b "$IDF_VERSION" --recursive --depth 1 \
+            https://github.com/espressif/esp-idf.git "$HOME/esp-idf"
+          cd "$HOME/esp-idf"
+          ./install.sh ${{ matrix.target }}
+          . ./export.sh
+          idf.py --version
       - name: Build
-        run: idf.py build
+        # The target has to be selected explicitly. ESP-IDF does not read the
+        # target from sdkconfig.defaults, so relying on that silently builds
+        # for the wrong chip.
+        run: |
+          idf.py set-target ${{ matrix.target }}
+          idf.py build
