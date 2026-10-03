@@ -291,37 +291,30 @@ terminal scrollback:
 
 | Workflow | Runs on | What it does |
 | --- | --- | --- |
-| `ci.yml` | every push, every PR, manual | host tests, seconds |
-| `firmware.yml` | manual | builds all four targets |
-| `build-release.yml` | manual | builds all four and publishes a GitHub release |
+| `ci.yml` | every push and pull request | host tests, takes seconds |
+| `firmware.yml` | manually | builds all four targets |
+| `build-release.yml` | manually | builds all four and attaches the images to a GitHub release |
 
-Only the host tests run automatically. The firmware jobs each install a whole
-ESP-IDF toolchain and compile it, which takes minutes per target.
+Only the host tests run on your commits. The firmware jobs each install a
+complete ESP-IDF toolchain and compile it, which takes several minutes per
+target, so a maintainer starts them deliberately rather than letting them run
+on every push. Contributors do not need to do anything here: opening a pull
+request runs the host tests automatically, and building the firmware and
+publishing releases is left to a maintainer.
+
+Release notes are generated rather than written by hand.
+`packaging/release_notes.py` finds the highest existing `v*` tag, takes the
+commits between it and `HEAD`, groups them by type, and inserts a new section
+into `CHANGELOG.md`. It is also useful on its own for previewing what a release
+would say:
 
 ```sh
-gh workflow run firmware.yml
-
-# creates a DRAFT release, safe to try
-gh workflow run build-release.yml -f version=v1.0.0
-
-# generate the notes for a version without publishing anything
 python3 packaging/release_notes.py --version v1.1.0 --out notes.md
-
-# publishes it publicly - only once you are happy with the artefacts
-gh workflow run build-release.yml -f version=v1.0.0 -f publish=true
 ```
 
-Two details worth knowing. `gh workflow run` takes no positional arguments, so
-the version must be passed as `-f version=...`. And the release stays a draft
-unless `publish` is exactly `true`, so a typo or an empty value cannot
-accidentally publish to the public repository.
-
-The release notes are generated, not written by hand. `packaging/release_notes.py`
-finds the highest existing `v*` tag, takes the commits between it and `HEAD`,
-groups them by type, and inserts a new section into `CHANGELOG.md` (which the
-workflow then commits). Commits are classified from prefixes, so
-`feat:`, `fix:` and `docs:` land in the right group, and plain sentences like
-`Fix the PSRAM detection` are recognised too.
+Commits are classified from their prefixes, so `feat:`, `fix:` and `docs:` land
+in the right group, and plain sentences such as `Fix the PSRAM detection` are
+recognised too.
 
 ## Testing without a board
 

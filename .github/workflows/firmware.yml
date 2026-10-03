@@ -1,9 +1,7 @@
 name: firmware
 
-# Manual only. Each job downloads and installs a whole ESP-IDF toolchain and
-# then compiles it from source, which takes several minutes per target. Start
-# one from the Actions tab, or with:
-#   gh workflow run firmware.yml
+# Maintainer-only. Manual trigger, because each job installs a whole ESP-IDF
+# toolchain and compiles it from source, taking several minutes per target.
 on:
   workflow_dispatch:
 

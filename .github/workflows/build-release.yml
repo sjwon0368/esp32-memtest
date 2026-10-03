@@ -1,15 +1,10 @@
 name: build release
 
-# Manual only, and it publishes a GitHub Release, so it must never fire on a
-# push. Start it with:
-#   gh workflow run build-release.yml -f version=v1.0.0                 (draft)
-#   gh workflow run build-release.yml -f version=v1.0.0 -f publish=true (publish)
+# Maintainer-only. Manual trigger, and it publishes a GitHub release, so it must
+# never fire on a push.
 #
-# The -f form is required: `gh workflow run` takes no positional arguments, so
-# "gh workflow run build-release.yml v1.0.0" silently does the wrong thing.
-#
-# The release is a DRAFT unless publish is exactly "true", so a mistyped or empty
-# value can never publish to the public repository.
+# A release is a DRAFT unless the publish input is exactly "true", so an unset or
+# mistyped value cannot publish to the public repository.
 #
 # For every supported target this builds the firmware and publishes two
 # artefacts:
