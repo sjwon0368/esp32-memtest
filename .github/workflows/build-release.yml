@@ -101,12 +101,19 @@ jobs:
 
           name="${{ matrix.name }}"
           chip="${{ matrix.chip }}"
-          stage="stage/$name"
-          mkdir -p "$stage"
 
-          cp build/bootloader/bootloader.bin          "$stage/bootloader.bin"
+          # Absolute paths on purpose. A previous version zipped into
+          # "stage/<NAME>/../<NAME>.zip", which resolves to stage/<NAME>.zip
+          # rather than the repository root, so the zip was never uploaded and
+          # the release carried only the merged images.
+          stage="$PWD/stage/$name"
+          outdir="$PWD/out"
+          infodir="$PWD/info"
+          mkdir -p "$stage" "$outdir" "$infodir"
+
+          cp build/bootloader/bootloader.bin           "$stage/bootloader.bin"
           cp build/partition_table/partition-table.bin "$stage/partition-table.bin"
-          cp build/esp32-memtest.bin                  "$stage/$name.bin"
+          cp build/esp32-memtest.bin                   "$stage/$name.bin"
 
           sed -e "s/@NAME@/$name/g" \
               -e "s/@CHIP@/$chip/g" \
@@ -118,33 +125,41 @@ jobs:
           # the merged image always matches how this target was built. These
           # differ per target: esp32 is 2 MB at 40 MHz, esp32s3 is 16 MB.
           esptool.py --chip "$chip" merge_bin \
-            -o "$name.bin" \
+            -o "$outdir/$name.bin" \
             0x0     build/bootloader/bootloader.bin \
             0x8000  build/partition_table/partition-table.bin \
             0x10000 build/esp32-memtest.bin
 
           # Do not ship an image that will not boot. Refuse to release it.
-          esptool.py image_info "$name.bin" | tee "$name.info"
-          grep -qi "checksum.*valid" "$name.info" || {
+          esptool.py image_info "$outdir/$name.bin" | tee "$infodir/$name.txt"
+          grep -qi "checksum.*valid" "$infodir/$name.txt" || {
             echo "::error::merged image for $name failed checksum validation"
             exit 1
           }
-          grep -qi "Detected image type: ${{ matrix.imgtype }}" "$name.info" || {
+          grep -qi "Detected image type: ${{ matrix.imgtype }}" "$infodir/$name.txt" || {
             echo "::error::merged image for $name is not a ${{ matrix.imgtype }} image"
-            grep -i "detected image type" "$name.info" || true
+            grep -i "detected image type" "$infodir/$name.txt" || true
             exit 1
           }
 
-          ( cd "$stage" && zip -q -r "../$name.zip" . )
-          echo "built $name.bin and $name.zip"
+          # Zip from outside the directory being zipped, so the archive cannot
+          # contain itself.
+          ( cd "$stage" && zip -q -r "$outdir/$name.zip" . )
+
+          test -s "$outdir/$name.zip" && test -s "$outdir/$name.bin" || {
+            echo "::error::packaging produced nothing for $name"
+            exit 1
+          }
+          echo "built $name.bin ($(stat -c%s "$outdir/$name.bin") bytes) " \
+               "and $name.zip ($(stat -c%s "$outdir/$name.zip") bytes)"
 
       - name: Upload package
         uses: actions/upload-artifact@v4
         with:
           name: release-${{ matrix.name }}
           path: |
-            ${{ matrix.name }}.zip
-            ${{ matrix.name }}.bin
+            out/${{ matrix.name }}.zip
+            out/${{ matrix.name }}.bin
 
   publish:
     needs: build
