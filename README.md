@@ -300,13 +300,18 @@ ESP-IDF toolchain and compile it, which takes minutes per target.
 
 ```sh
 gh workflow run firmware.yml
+
+# creates a DRAFT release, safe to try
 gh workflow run build-release.yml -f version=v1.0.0
+
+# publishes it publicly - only once you are happy with the artefacts
+gh workflow run build-release.yml -f version=v1.0.0 -f publish=true
 ```
 
-Note the `-f version=...` form: `gh workflow run` takes no positional
-arguments, so `gh workflow run build-release.yml v1.0.0` does not set the
-version. Pass `--draft` in the workflow's inputs to create a draft release
-instead of publishing it immediately.
+Two details worth knowing. `gh workflow run` takes no positional arguments, so
+the version must be passed as `-f version=...`. And the release stays a draft
+unless `publish` is exactly `true`, so a typo or an empty value cannot
+accidentally publish to the public repository.
 
 ## Testing without a board
 

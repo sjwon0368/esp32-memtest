@@ -2,10 +2,14 @@ name: build release
 
 # Manual only, and it publishes a GitHub Release, so it must never fire on a
 # push. Start it with:
-#   gh workflow run build-release.yml -f version=v1.0.0
+#   gh workflow run build-release.yml -f version=v1.0.0                 (draft)
+#   gh workflow run build-release.yml -f version=v1.0.0 -f publish=true (publish)
 #
 # The -f form is required: `gh workflow run` takes no positional arguments, so
 # "gh workflow run build-release.yml v1.0.0" silently does the wrong thing.
+#
+# The release is a DRAFT unless publish is exactly "true", so a mistyped or empty
+# value can never publish to the public repository.
 #
 # For every supported target this builds the firmware and publishes two
 # artefacts:
@@ -19,8 +23,8 @@ on:
         description: 'Release tag, e.g. v1.0.0'
         required: true
         type: string
-      draft:
-        description: 'Create as a draft instead of publishing'
+      publish:
+        description: 'Publish the release. Leave unset to keep it as a draft.'
         required: false
         default: false
         type: boolean
@@ -150,16 +154,29 @@ jobs:
       - name: Create release
         env:
           GH_TOKEN: ${{ github.token }}
+          # Taken from the environment rather than interpolated with ${{ }}, so
+          # the shell sees a plain string and a typo cannot become syntax.
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_PUBLISH: ${{ inputs.publish }}
         run: |
           set -eu
-          tag="${{ inputs.version }}"
+
+          tag="$INPUT_VERSION"
           case "$tag" in
-            v*) ;;
-            *) echo "error: the tag must start with v, got '$tag'"; exit 1 ;;
+            v[0-9]*) ;;
+            *) echo "error: the tag must look like v1.0.0, got '$tag'"; exit 1 ;;
           esac
-          args=""
-          if [ "${{ inputs.draft }}" = "true" ]; then
-            args="--draft"
-          fi
+
+          # Only an explicit "true" publishes. An empty value means the input was
+          # never set, so the release stays a draft; anything else is a mistake
+          # worth failing on rather than quietly guessing at.
+          args="--draft"
+          case "$INPUT_PUBLISH" in
+            "")    ;;                            # unset: keep it a draft
+            true)  args="--draft=false" ;;
+            false) ;;                            # explicit draft
+            *) echo "error: publish must be true or false, got '$INPUT_PUBLISH'"; exit 1 ;;
+          esac
+
           gh release create "$tag" dist/*.bin dist/*.zip --title "$tag" \
             --notes-file notes.md $args
