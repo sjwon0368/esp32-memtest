@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.0.0]
 
+First release.
+
+### Housekeeping
+
+- Generate release notes from git history and fix zip output path (`93198ec`)
+- Make release default to a draft and validate its inputs (`e853837`)
+- Split CI by cost and add a release workflow (`28d63cf`)
+- Reframe README board profile as target defaults; run CI on demand only (`aeb0cba`)
+- Install ESP-IDF with an explicit IDF_PATH instead of runner env files (`8151b34`)
+- Export ESP-IDF environment to later CI steps (`8ba4935`)
+- Run CI on master instead of main (`a443cae`)
+- Ignore captured results.md (`ef491a6`)
+- Set copyright holder and expand setup instructions (`9f4164b`)
+- esp32-memtest 1.0.0: serial memory tester for Espressif MCUs (`92a88b6`)
+
+### Features
+
+- release notes generator and fix zip output path (`b6a55e2`)
+
+### Bug fixes
+
+- release packaging: one shell, quiet install, validate merged images (`2e3bcc5`)
+- CI: espressif/idf action does not exist, install ESP-IDF directly (`c480530`)
+
+## [1.0.0]
+
 ### Added
 
 - Portable memory test engine with ten patterns: `zero`, `ones`, `aa55`,
