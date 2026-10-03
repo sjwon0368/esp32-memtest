@@ -15,6 +15,7 @@ dependencies.lock
 # Local notes and captured console output
 logs.md
 log-*.md
+results.md
 probe-cold.log
 error.md
 CHATGPT_PROMPT.md
