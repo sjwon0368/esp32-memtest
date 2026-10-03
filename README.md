@@ -189,6 +189,33 @@ esptool.py --chip esp32s3 -p /dev/ttyACM0 write_flash 0x0 esp32-memtest-merged.b
 is in `dist/`; `--flash_size` must match the board (16 MB for `N16R8`), a too
 small header caps the flash the bootloader maps.
 
+### Prebuilt images
+
+Releases attach a merged image per target, each named after the chip and
+flashed at `0x0`:
+
+| File | Chip |
+| --- | --- |
+| `ESP32.bin` | `esp32` |
+| `ESP32S3.bin` | `esp32s3` |
+| `ESP32C3.bin` | `esp32c3` |
+| `ESP32P4.bin` | `esp32p4` |
+
+Each target also has a `.zip` containing the three separate images plus a
+`FLA.txt` with the same instructions.
+
+```sh
+# 1. flash the merged image at 0x0
+esptool.py --chip esp32s3 -p /dev/ttyUSB0 write_flash 0x0 ESP32S3.bin
+
+# 2. watch it, 115200 baud 8N1
+minicom -D /dev/ttyUSB0 -b 115200
+```
+
+If it cannot connect, hold `BOOT`, tap `RESET`, release `BOOT`. The port may be
+`/dev/ttyACM*` rather than `/dev/ttyUSB*`, depending on the USB bridge on the
+board.
+
 ## Troubleshooting
 
 | Symptom | Cause and fix |
@@ -259,6 +286,27 @@ terminal scrollback:
   reserve of internal RAM for the console and the allocator.
 * `STOPPED` instead of `PASS`/`FAIL` means the test was cut short by a key or
   by the pass count, not that it passed.
+
+## Continuous integration
+
+| Workflow | Runs on | What it does |
+| --- | --- | --- |
+| `ci.yml` | every push, every PR, manual | host tests, seconds |
+| `firmware.yml` | manual | builds all four targets |
+| `build-release.yml` | manual | builds all four and publishes a GitHub release |
+
+Only the host tests run automatically. The firmware jobs each install a whole
+ESP-IDF toolchain and compile it, which takes minutes per target.
+
+```sh
+gh workflow run firmware.yml
+gh workflow run build-release.yml -f version=v1.0.0
+```
+
+Note the `-f version=...` form: `gh workflow run` takes no positional
+arguments, so `gh workflow run build-release.yml v1.0.0` does not set the
+version. Pass `--draft` in the workflow's inputs to create a draft release
+instead of publishing it immediately.
 
 ## Testing without a board
 

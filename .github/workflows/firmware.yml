@@ -1,0 +1,49 @@
+name: firmware
+
+# Manual only. Each job downloads and installs a whole ESP-IDF toolchain and
+# then compiles it from source, which takes several minutes per target. Start
+# one from the Actions tab, or with:
+#   gh workflow run firmware.yml
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [esp32, esp32s3, esp32c3, esp32p4]
+    env:
+      IDF_VERSION: v5.5
+      IDF_PATH: /home/runner/esp-idf
+    steps:
+      - uses: actions/checkout@v4
+      # There is no official ESP-IDF setup action: espressif/idf does not exist
+      # as a repository, and espressif/esp-idf ships no action.yml. Install it
+      # the way the documentation describes instead. Installing only the
+      # toolchain for the target under test keeps the job reasonably quick.
+      - name: Install ESP-IDF
+        run: |
+          git clone -b "$IDF_VERSION" --recursive --depth 1 \
+            https://github.com/espressif/esp-idf.git "$IDF_PATH"
+          cd "$IDF_PATH"
+          ./install.sh ${{ matrix.target }}
+      # Every run: block gets a new shell, so the environment has to be sourced
+      # again here or idf.py is simply not found.
+      - name: Build
+        # The target is selected explicitly on purpose. ESP-IDF does not read
+        # the target from sdkconfig.defaults, so relying on that alone silently
+        # builds for the wrong chip.
+        run: |
+          . "$IDF_PATH/export.sh"
+          idf.py set-target ${{ matrix.target }}
+          idf.py build
+      - name: Upload raw images
+        uses: actions/upload-artifact@v4
+        with:
+          name: images-${{ matrix.target }}
+          path: |
+            build/bootloader/bootloader.bin
+            build/partition_table/partition-table.bin
+            build/esp32-memtest.bin

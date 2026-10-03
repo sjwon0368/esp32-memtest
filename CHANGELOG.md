@@ -64,3 +64,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   survives a redraw, so a full run can be reviewed without it snapping back.
 - The screen width is `CONFIG_MEMTEST_UI_WIDTH` (default 78, an 80-column
   display) so a wider terminal can be used without editing the source.
+
+### Continuous integration
+
+- Split into three workflows: `ci.yml` (host tests, runs on every push),
+  `firmware.yml` (builds all four targets, manual) and `build-release.yml`
+  (builds and publishes a GitHub release, manual). Only the fast host tests run
+  automatically; each firmware job installs a complete ESP-IDF toolchain.
+- `build-release.yml` publishes a merged image and a zip per target, named
+  `ESP32`, `ESP32S3`, `ESP32C3` and `ESP32P4`, with per-target flashing
+  instructions generated from `packaging/FLA.in.txt`.
+- The merged images take their flash mode, frequency and size from each
+  bootloader's own header instead of a hardcoded table, because they differ per
+  target (the `esp32` build is 2 MB at 40 MHz, the `esp32s3` build is 16 MB).

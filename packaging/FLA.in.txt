@@ -1,0 +1,37 @@
+@NAME@ - prebuilt esp32-memtest
+====================================
+
+The simplest option is the single merged image, flashed at offset 0x0:
+
+  esptool.py --chip @CHIP@ -p /dev/ttyUSB0 write_flash 0x0 @NAME@.bin
+
+Hold BOOT, tap RESET and release BOOT if it cannot connect. Then watch the
+output at 115200 baud, 8N1:
+
+  minicom -D /dev/ttyUSB0 -b 115200
+
+The port can also be /dev/ttyACM*, depending on the USB bridge fitted to your
+board.
+
+If you prefer the three separate images:
+
+  esptool.py --chip @CHIP@ -p /dev/ttyUSB0 write_flash \
+    0x0     bootloader.bin \
+    0x8000  partition-table.bin \
+    0x10000 @NAME@.bin
+
+Then press a key on the finished screen: r runs the suite again, Enter prints
+the full report, q exits.
+
+About PSRAM
+-----------
+
+This build uses the shared defaults for @TARGET@. If your module has octal
+PSRAM (an R8 part, e.g. ESP32-S3-WROOM-1 N16R8) but quad mode is selected, the
+chip boot-loops before the tester starts with:
+
+  E quad_psram: PSRAM chip is not connected, or wrong PSRAM line mode
+
+The tester itself reports the PSRAM size it found on the startup screen, so if
+that line says "none detected" while your board has PSRAM, this is almost always
+the reason.

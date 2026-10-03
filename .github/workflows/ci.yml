@@ -1,14 +1,16 @@
-name: build
+name: host tests
 
-# Manual only. Firmware builds take several minutes per target and download a
-# whole ESP-IDF toolchain each time, so they should not run on every push.
-# Start one from the repository's Actions tab, or with:
-#   gh workflow run ci.yml
+# The engine, the screen layout and the ANSI replay harness are plain C11 and
+# build in a few seconds, so they run on every push. The firmware builds need a
+# full ESP-IDF toolchain each and live in firmware.yml, which is manual.
 on:
+  push:
+    branches: [master]
+  pull_request:
   workflow_dispatch:
 
 jobs:
-  host-tests:
+  tests:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -16,35 +18,3 @@ jobs:
         run: make -C tests/host all
       - name: Engine tests under ASan/UBSan
         run: make -C tests/host asan
-
-  firmware:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        target: [esp32, esp32s3, esp32c3, esp32p4]
-    env:
-      IDF_VERSION: v5.5
-      IDF_PATH: /home/runner/esp-idf
-    steps:
-      - uses: actions/checkout@v4
-      # There is no official ESP-IDF setup action: espressif/idf does not exist
-      # as a repository, and espressif/esp-idf ships no action.yml. Install it
-      # the way the documentation describes instead. Installing only the
-      # toolchain for the target under test keeps the job reasonably quick.
-      - name: Install ESP-IDF
-        run: |
-          git clone -b "$IDF_VERSION" --recursive --depth 1 \
-            https://github.com/espressif/esp-idf.git "$IDF_PATH"
-          cd "$IDF_PATH"
-          ./install.sh ${{ matrix.target }}
-      # Every run: block gets a new shell, so the environment has to be sourced
-      # again here or idf.py is simply not found.
-      - name: Build
-        # The target is selected explicitly on purpose. ESP-IDF does not read
-        # the target from sdkconfig.defaults, so relying on that alone silently
-        # builds for the wrong chip.
-        run: |
-          . "$IDF_PATH/export.sh"
-          idf.py set-target ${{ matrix.target }}
-          idf.py build

@@ -1,0 +1,165 @@
+name: build release
+
+# Manual only, and it publishes a GitHub Release, so it must never fire on a
+# push. Start it with:
+#   gh workflow run build-release.yml -f version=v1.0.0
+#
+# The -f form is required: `gh workflow run` takes no positional arguments, so
+# "gh workflow run build-release.yml v1.0.0" silently does the wrong thing.
+#
+# For every supported target this builds the firmware and publishes two
+# artefacts:
+#   <NAME>.zip  bootloader.bin, partition-table.bin, <NAME>.bin, FLA.txt
+#   <NAME>.bin  one merged image, flashed at offset 0x0
+# where <NAME> is ESP32, ESP32C3, ESP32S3 or ESP32P4.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release tag, e.g. v1.0.0'
+        required: true
+        type: string
+      draft:
+        description: 'Create as a draft instead of publishing'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  IDF_VERSION: v5.5
+  IDF_PATH: /home/runner/esp-idf
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: esp32
+            name: ESP32
+            chip: esp32
+          - target: esp32s3
+            name: ESP32S3
+            chip: esp32s3
+          - target: esp32c3
+            name: ESP32C3
+            chip: esp32c3
+          - target: esp32p4
+            name: ESP32P4
+            chip: esp32p4
+    steps:
+      - uses: actions/checkout@v4
+      # There is no official ESP-IDF setup action: espressif/idf does not exist
+      # as a repository and espressif/esp-idf ships no action.yml.
+      - name: Install ESP-IDF
+        run: |
+          git clone -b "$IDF_VERSION" --recursive --depth 1 \
+            https://github.com/espressif/esp-idf.git "$IDF_PATH"
+          cd "$IDF_PATH"
+          ./install.sh ${{ matrix.target }}
+
+      - name: Build
+        # The target is selected explicitly: ESP-IDF does not read it from
+        # sdkconfig.defaults, so relying on that alone builds for the wrong chip.
+        run: |
+          . "$IDF_PATH/export.sh"
+          idf.py set-target ${{ matrix.target }}
+          idf.py build
+
+      - name: Package
+        run: |
+          set -eu
+          name="${{ matrix.name }}"
+          stage="stage/$name"
+          mkdir -p "$stage"
+
+          cp build/bootloader/bootloader.bin        "$stage/bootloader.bin"
+          cp build/partition_table/partition-table.bin "$stage/partition-table.bin"
+          cp build/esp32-memtest.bin                "$stage/$name.bin"
+
+          sed -e "s/@NAME@/$name/g" \
+              -e "s/@CHIP@/${{ matrix.chip }}/g" \
+              -e "s/@TARGET@/${{ matrix.target }}/g" \
+              packaging/FLA.in.txt > "$stage/FLA.txt"
+
+          # --flash_mode, --flash_freq and --flash_size are deliberately left
+          # out. merge_bin then takes them from the bootloader's own header, so
+          # the merged image always matches how this target was built. These
+          # differ per target: esp32 is 2 MB at 40 MHz, esp32s3 is 16 MB.
+          esptool.py --chip ${{ matrix.chip }} merge_bin \
+            -o "stage/$name.bin" \
+            0x0     build/bootloader/bootloader.bin \
+            0x8000  build/partition_table/partition-table.bin \
+            0x10000 build/esp32-memtest.bin
+
+          ( cd "$stage" && zip -q -r "../$name.zip" . )
+
+      - name: Upload package
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.name }}
+          path: |
+            stage/${{ matrix.name }}.zip
+            stage/${{ matrix.name }}.bin
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: artefacts
+
+      - name: Collect artefacts
+        run: |
+          set -eu
+          mkdir -p dist
+          find artefacts -name '*.zip' -o -name '*.bin' | while read -r f; do
+            cp "$f" dist/
+          done
+          ls -l dist
+
+      - name: Build release notes
+        run: |
+          set -eu
+          {
+            echo "Prebuilt firmware for every supported target."
+            echo
+            echo "Each target ships as a zip with the three separate images and a"
+            echo "\`FLA.txt\` describing the flash offsets, plus a single merged"
+            echo "\`.bin\` image that can be flashed at offset \`0x0\`."
+            echo
+            echo "| Target | Merged image | Zip |"
+            echo "| --- | --- | --- |"
+            echo "| ESP32 | \`ESP32.bin\` | \`ESP32.zip\` |"
+            echo "| ESP32S3 | \`ESP32S3.bin\` | \`ESP32S3.zip\` |"
+            echo "| ESP32C3 | \`ESP32C3.bin\` | \`ESP32C3.zip\` |"
+            echo "| ESP32P4 | \`ESP32P4.bin\` | \`ESP32P4.zip\` |"
+            echo
+            echo "Full instructions are in \`FLA.txt\` inside each zip, and in the"
+            echo "[README](https://github.com/${{ github.repository }}#flashing-a-single-file)."
+            echo
+            echo "See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/${{ inputs.version }}/CHANGELOG.md) for what changed."
+          } > notes.md
+          cat notes.md
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          tag="${{ inputs.version }}"
+          case "$tag" in
+            v*) ;;
+            *) echo "error: the tag must start with v, got '$tag'"; exit 1 ;;
+          esac
+          args=""
+          if [ "${{ inputs.draft }}" = "true" ]; then
+            args="--draft"
+          fi
+          gh release create "$tag" dist/*.bin dist/*.zip --title "$tag" \
+            --notes-file notes.md $args
