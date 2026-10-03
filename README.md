@@ -66,19 +66,30 @@ keeps enough internal RAM free for the console and the FreeRTOS runtime.
 
 ## Building
 
-Requires ESP-IDF v5.5 or newer.
+Requires `ESP-IDF v5.5` or newer.
+
+-# Requires minimum 2GB of storage.
+
+-# a full stack install can use up to 10GB
+
+>[!NOTE]
+>Note: setup commands are for Linux-only. Windows users will need to write their own commands.
+>
+>I will probably write commands for Windows sometime if I bother, otherwise someone can make a PR for this.
 
 ```sh
-git clone <this repository>
+git clone https://github.com/sjwon0368/esp32-memtest
 cd esp32-memtest
 
 . $IDF_PATH/export.sh          # or: . /opt/esp-idf/export.sh
 idf.py set-target esp32s3      # esp32, esp32c3, esp32p4, ...
 idf.py build
+# replace ttyUSB0 to your actual board
+# it can also be /dev/ttyACM*
 idf.py -p /dev/ttyUSB0 flash monitor
 ```
 
-Set the terminal to 115200 baud, 8N1. Press `Ctrl-]` to leave the monitor.
+Set the terminal to 115200 baud, 8N1. Press `Ctrl-]` to leave the monitor(if you used `idf.py flash monitor`).
 
 Always select the chip explicitly with `set-target` (or `-DIDF_TARGET=...`). With
 no `sdkconfig` present, ESP-IDF 5.5 falls back to plain `esp32` and silently
@@ -287,3 +298,4 @@ directly; `memtest_esp` is the only component that includes ESP-IDF headers.
 ## License
 
 MIT, see [LICENSE](LICENSE).
+
