@@ -36,8 +36,10 @@ jobs:
             https://github.com/espressif/esp-idf.git "$HOME/esp-idf"
           cd "$HOME/esp-idf"
           ./install.sh ${{ matrix.target }}
-          . ./export.sh
-          idf.py --version
+          # Every run: block is a new shell, so the environment has to be
+          # handed to the following steps or idf.py is simply not found.
+          echo "IDF_PATH=$HOME/esp-idf" >> "$GITHUB_ENV"
+          echo "$HOME/esp-idf/export.sh" >> "$GITHUB_BASH_ENV"
       - name: Build
         # The target has to be selected explicitly. ESP-IDF does not read the
         # target from sdkconfig.defaults, so relying on that silently builds
