@@ -1,0 +1,24 @@
+build/
+build-*/
+sdkconfig
+sdkconfig.old
+managed_components/
+dependencies.lock
+*.o
+*.elf
+*.bin
+*.map
+*.log
+.vscode/
+.DS_Store
+
+# Local notes and captured console output
+logs.md
+log-*.md
+probe-cold.log
+error.md
+CHATGPT_PROMPT.md
+sdkconfig.usbconsole
+
+# Release artefacts are built by CI / flash.sh
+dist/

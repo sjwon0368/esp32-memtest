@@ -1,0 +1,33 @@
+# ---------------------------------------------------------------------------
+# Target-specific defaults for esp32s3 builds. ESP-IDF appends this file to
+# sdkconfig.defaults automatically when the target is esp32s3.
+# ---------------------------------------------------------------------------
+
+# --- PSRAM ----------------------------------------------------------
+# This is the single most important setting for a memory tester: with
+# MALLOC_CAP_SPIRAM unusable, the ESP-IDF heap refuses to hand out PSRAM
+# and there is nothing to test.  esp32-memtest prints a loud warning when
+# this is disabled.
+CONFIG_SPIRAM=y
+CONFIG_SPIRAM_USE_MALLOC=y
+# Do not waste PSRAM on small allocations, keep it for the test pool.
+CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL=16384
+# Leave internal RAM for the IDF runtime, the console and the test pool.
+CONFIG_SPIRAM_MALLOC_RESERVE_INTERNAL=98304
+CONFIG_SPIRAM_TRY_ALLOCATE_WIFI_LWIP=n
+# A memory tester must be able to boot on a board whose PSRAM is absent or
+# wired wrong, otherwise it cannot report anything at all: without this the
+# ESP-IDF startup panics in a reboot loop before app_main() ever runs.
+CONFIG_SPIRAM_IGNORE_NOTFOUND=y
+
+# Hardware profile of the reference board: ESP32-S3-WROOM-1 N16R8.
+#   N16 = 16 MB quad SPI flash   -> F16, DIO at 80 MHz
+#   R8  = 8 MB octal SPI PSRAM  -> F16R8, octal (OPI/DTR) line mode
+# Quad PSRAM is the ESP-IDF default for the S3, so an N16R8 board has to select
+# octal explicitly or it boot-loops with "quad_psram: PSRAM chip is not
+# connected, or wrong PSRAM line mode" before app_main() ever runs.
+CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
+CONFIG_SPIRAM_MODE_OCT=y
+# Octal PSRAM runs in DTR mode; 80 MHz is the supported, non-experimental rate
+# (120 MHz octal exists but is flagged experimental upstream).
+CONFIG_SPIRAM_SPEED_80M=y

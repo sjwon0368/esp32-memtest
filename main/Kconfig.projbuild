@@ -1,0 +1,137 @@
+menu "Memory tester (esp32-memtest)"
+
+    config MEMTEST_AUTORUN
+        bool "Start testing automatically on boot"
+        default y
+        help
+            When disabled, esp32-memtest shows a text menu on the serial
+            console where the memory region, the test set and the number of
+            passes can be chosen at runtime.
+
+    config MEMTEST_REGIONS
+        string "Memory regions to test"
+        default "psram,internal"
+        help
+            Comma separated list of memory regions:
+              psram     PSRAM (SPI RAM), needs CONFIG_SPIRAM_USE_MALLOC
+              internal  internal DRAM
+              dma       DMA capable DRAM (a subset of internal DRAM)
+              any       whatever the allocator hands out
+
+            Regions that do not exist on the board are reported and skipped,
+            so "psram,internal" is a safe default for every board.
+
+    config MEMTEST_TESTS
+        string "Test set"
+        default "full"
+        help
+            Comma separated list of test set names and/or individual
+            patterns.  Sets:
+              quick     zero, ones, aa55, address, random
+              standard  quick + movinginv, checker
+              extended  standard + bitone, bitzero, modulox
+              full      every pattern (slow but thorough)
+              random    random only - good for long soak testing
+              walking   address, checker, bitone, bitzero
+              none      clear the list
+
+            Individual pattern keys can be mixed in, e.g.
+            "quick,modulox" or "address,random".
+
+    config MEMTEST_PASSES
+        int "Passes over the memory"
+        default 1
+        range 0 1000
+        help
+            How often the whole test set is repeated.  0 means "keep going
+            until a key is pressed", which is how marginal faults are found -
+            memory that only fails when hot, or only after thousands of
+            cycles.
+
+    config MEMTEST_SEED
+        int "Seed for the pseudo random pattern"
+        default 4919
+
+    config MEMTEST_TEST_SIZE_MB
+        int "Amount of memory to test per region, in MiB"
+        default 0
+        help
+            0 = automatic: use as much of the region as can be allocated
+            while keeping the runtime alive.  A fixed value is useful to
+            leave a known good part of PSRAM available for an application.
+
+    config MEMTEST_MAX_TEST_MB
+        int "Upper limit for automatic sizing, in MiB"
+        default 0
+        help
+            0 = no limit.  Only useful together with an automatic size.
+
+    config MEMTEST_BLOCK_KB
+        int "Preferred size of a single test block, in KiB"
+        default 256
+        range 4 8192
+        help
+            The tester grabs memory in blocks so that a fragmented heap can
+            still be tested almost completely.  Bigger blocks are faster
+            (fewer sweeps), smaller blocks cover more of a fragmented heap.
+
+    config MEMTEST_RESERVE_KB
+        int "Memory to keep free in internal RAM, in KiB"
+        default 96
+        help
+            Requests that would eat the last bytes of internal RAM are
+            refused, so the console, the heap metadata and the FreeRTOS
+            keep working.  Only applies to internal heaps.
+
+    config MEMTEST_SELFTEST
+        bool "Verify the tester itself before starting"
+        default y
+        help
+            Runs a short fill/verify cycle over a small internal buffer.
+            If that fails, the fault is in the tester or the chip, not in
+            your PSRAM module.
+
+    config MEMTEST_UI_ANSI
+        bool "Full screen text UI (ANSI escape sequences)"
+        default y
+        help
+            Enabled: redraws a 80 column status screen, keeps the terminal
+            scrollback clean and prints the final report in the log.
+            Disabled: one line per event, for terminals that do not handle
+            escape sequences, log files and CI.  The 'u' key switches at
+            runtime.
+
+    config MEMTEST_REFRESH_MS
+        int "Screen refresh interval, in milliseconds"
+        default 200
+        range 50 5000
+
+    config MEMTEST_KEYS
+        bool "Read key presses from the console"
+        default y
+        help
+            Disables pause / skip / quit / help while the tests run.
+            Turn this off when the console is shared with something else.
+
+    config MEMTEST_BAUD
+        int "Serial console baud rate"
+        default 115200
+        help
+            Must match the terminal.  Also sets CONFIG_ESP_CONSOLE_UART_BAUDRATE.
+
+    config MEMTEST_REBOOT
+        bool "Reboot the board when the run finishes"
+        default n
+        help
+            Useful for a test rig that keeps running memtest in a loop.
+
+    config MEMTEST_REBOOT_DELAY_MS
+        int "Delay before rebooting, in milliseconds"
+        default 5000
+        depends on MEMTEST_REBOOT
+
+    config MEMTEST_VERBOSE
+        bool "Log every allocation decision and test transition"
+        default n
+
+endmenu

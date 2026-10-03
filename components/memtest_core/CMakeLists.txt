@@ -1,0 +1,9 @@
+idf_component_register(
+    SRCS
+        "mt_pattern.c"
+        "mt_pool.c"
+        "mt_test.c"
+        "mt_set.c"
+    INCLUDE_DIRS
+        "include"
+)

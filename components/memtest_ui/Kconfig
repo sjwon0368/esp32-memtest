@@ -1,0 +1,17 @@
+menu "Serial screen"
+
+    config MEMTEST_UI_WIDTH
+        int "Screen width in columns, borders included"
+        default 78
+        range 60 200
+        help
+            The live screen is drawn as a box around MT_UI_ROWS rows. Every
+            row occupies this many columns, so the default of 78 produces an
+            80-column display that fits a stock 80x24 terminal exactly.
+
+            Widen it if your terminal has more columns, for example 108 for a
+            110-column window. If the terminal is narrower than this setting
+            each row wraps and the box is destroyed, so the two must be kept
+            in step.
+
+endmenu

@@ -1,0 +1,42 @@
+# NOTE: CONFIG_IDF_TARGET is intentionally not set here. ESP-IDF 5.5 does not
+# honour it from sdkconfig.defaults for target selection, and with no sdkconfig
+# present it silently builds for plain esp32. Always select the chip explicitly:
+#   idf.py set-target esp32s3        # or: idf.py -DIDF_TARGET=esp32s3 build
+# ./flash.sh and README.md do this for you.
+
+# ------------------------------------------------------------------
+# esp32-memtest default configuration
+#
+# Only the settings that are required (or strongly recommended) for a
+# memory tester are forced here.  Everything else can be changed with
+# `idf.py menuconfig` -> "Memory Tester (esp32-memtest)".
+# ------------------------------------------------------------------
+
+# --- Serial console -------------------------------------------------
+# memtest output is plain text; make sure the console is a plain UART at
+# 115200 8N1 so that any terminal program can read it.
+CONFIG_ESP_CONSOLE_UART_DEFAULT=y
+CONFIG_ESP_CONSOLE_UART_BAUDRATE=115200
+# The ESP-IDF default for the secondary console is USB_SERIAL_JTAG on every SoC
+# that has it. Do not take it: on boards that are not Espressif reference designs
+# the native USB peripheral is not dependable, and polling its driver for keys
+# crashes with a NULL handle. UART0 only.
+CONFIG_ESP_CONSOLE_SECONDARY_NONE=y
+
+# --- PSRAM ----------------------------------------------------------
+# PSRAM configuration is chip specific and lives in the target specific
+# defaults files, ESP-IDF appends them automatically for the matching target
+# (tools/cmake/kconfig.cmake appends "<file>.<target>" when it exists):
+#   sdkconfig.defaults.esp32s3   ESP32-S3, including the N16R8 profile below
+#   sdkconfig.defaults.esp32     classic ESP32 with quad PSRAM
+# Targets without external RAM (esp32c3) have no such symbols at all, so
+# keeping these out of this file avoids "unknown kconfig symbol" warnings.
+
+# --- Runtime --------------------------------------------------------
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=8192
+CONFIG_COMPILER_OPTIMIZATION_PERF=y
+CONFIG_FREERTOS_HZ=1000
+
+# --- Test application (see menuconfig) ------------------------------
+CONFIG_MEMTEST_AUTORUN=y
+CONFIG_MEMTEST_UI_ANSI=y
