@@ -201,7 +201,7 @@ jobs:
           # Compares against the highest existing v* tag, groups the commits in
           # between by type, and inserts a section into CHANGELOG.md.
           python3 packaging/release_notes.py --version "$TAG" \
-            --repo "$REPO" --out notes-changes.md
+            --repo "$REPO" --out notes-changes.md --no-header
           echo "--- changes ---"
           cat notes-changes.md
 
@@ -222,17 +222,24 @@ jobs:
 
       - name: Assemble release body
         env:
+          TAG: ${{ inputs.version }}
           REPO: ${{ github.repository }}
         run: |
           set -eu
+          # Absolute asset URLs: GitHub serves release downloads from
+          # /releases/download/<tag>/<file>, not from the tag page.
+          sed -e "s|@TAG@|$TAG|g" -e "s|@REPO@|$REPO|g" \
+            packaging/RELEASE_BODY.in.md > notes-head.md
+          # Normalise trailing newlines so the headings below never collide with
+          # the last line of the section above them.
+          for f in notes-head.md notes-changes.md; do
+            printf '\n' >> "$f"
+          done
           {
-            cat packaging/RELEASE_BODY.in.md
-            echo
-            echo "## What changed in ${{ inputs.version }}"
+            cat notes-head.md
+            echo "## Changelog"
             echo
             cat notes-changes.md
-            echo
-            echo "Full instructions: <https://github.com/$REPO#prebuilt-images>"
           } > notes.md
           echo "--- release body ---"
           cat notes.md

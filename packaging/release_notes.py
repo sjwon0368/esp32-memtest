@@ -103,13 +103,16 @@ def collect(prev, current):
     return commits
 
 
-def render(commits, version, previous, repo):
+def render(commits, version, previous, repo, header=True):
     grouped = OrderedDict()
     for sha, subject, _author, category in commits:
         grouped.setdefault(category, []).append((sha, subject))
 
     out = []
-    out.append(f"## {version}\n")
+    # The heading is optional: the release body supplies its own "## Changelog"
+    # heading, and two consecutive H2s read badly.
+    if header:
+        out.append(f"## {version}\n")
     if previous:
         out.append(f"Changes since `{previous}`.\n")
     else:
@@ -123,13 +126,22 @@ def render(commits, version, previous, repo):
         heading = CATEGORIES.get(category, ("Changed", "Other"))
         out.append(f"### {heading[1]}\n")
         for sha, subject in items:
-            out.append(f"- {subject} (`{sha}`)")
+            # Link the hash to the commit, so a reader can inspect the change
+            # without leaving the release page.
+            if repo:
+                ref = f"[`{sha}`](https://github.com/{repo}/commit/{sha})"
+            else:
+                ref = f"`{sha}`"
+            out.append(f"- {subject} ({ref})")
         out.append("")
 
     if repo:
+        # The full diff between two releases stays behind a single link instead
+        # of being pasted into the notes.
+        label = f"`{previous}`...`{version}`" if previous else "all commits"
         out.append(
-            f"Full history: https://github.com/{repo}/compare/"
-            f"{previous or 'initial'}...{version}\n"
+            f"[Full diff: {label}](https://github.com/{repo}/compare/"
+            f"{previous or 'initial'}...{version})\n"
         )
     return "\n".join(out)
 
@@ -143,7 +155,7 @@ def changelog_section(markdown):
     """
     kept = []
     for line in markdown.splitlines():
-        if line.startswith("Full history:"):
+        if line.startswith("Full diff:"):
             break
         if line.startswith("## "):
             # Keep a Changelog uses [1.0.1]; the tag on GitHub is v1.0.1.
@@ -199,6 +211,11 @@ def main():
         help="print the notes but leave CHANGELOG.md alone",
     )
     parser.add_argument(
+        "--no-header",
+        action="store_true",
+        help="omit the '## <version>' heading, for embedding in a release body",
+    )
+    parser.add_argument(
         "--force",
         action="store_true",
         help="rewrite the CHANGELOG section even if that version is documented",
@@ -213,6 +230,13 @@ def main():
     prev = previous_tag(args.version)
     commits = collect(prev, args.version)
     markdown = render(commits, args.version, prev, args.repo)
+
+    if args.no_header:
+        # The release body already has a "## Changelog" heading of its own.
+        lines = markdown.splitlines()
+        if lines and lines[0].startswith("## "):
+            lines = lines[1:]
+        markdown = "\n".join(lines).lstrip("\n")
 
     with open(args.out, "w", encoding="utf-8") as handle:
         handle.write(markdown)
